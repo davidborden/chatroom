@@ -104,13 +104,13 @@ if serverPort < 1024 or serverPort > 49151:
 serverSocket = socket(AF_INET, SOCK_STREAM)
 
 try:
-        serverSocket.bind(('localhost', serverPort))
+        serverSocket.bind(('pinky.cs.ucsb.edu', serverPort))
 except:
         print "Could not bind port. Terminating."
         sys.exit()
 
 #Listens with a max of 1 connection
-serverSocket.listen(1)
+serverSocket.listen(2)
 
 #Needs to be removed eventually
 

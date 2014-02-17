@@ -39,7 +39,7 @@ def readMessage(socket, receivedStream, messageLength, index):
         return message
 
 userID = ""
-serverName = 'localhost'
+serverName = 'pinky.cs.ucsb.edu'
 #Sets the port based on argument in sys.argv[1]
 serverPort = int(sys.argv[1])
 if serverPort < 1024 or serverPort > 49151:
