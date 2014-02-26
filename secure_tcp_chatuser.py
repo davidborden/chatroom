@@ -19,10 +19,10 @@ class ChatUser():
 	self.port = int(portnum)
         self.clientSocket = socket(AF_INET, SOCK_STREAM)
         try:
-            self.clientSocket.connect((host, self.port))
-            self.READABLE_STREAMS = [sys.stdin, self.clientSocket]
-            self.active = 1
-            self.run()
+        	self.clientSocket.connect((host, self.port))
+	        self.READABLE_STREAMS = [sys.stdin, self.clientSocket]
+	        self.active = 1
+	        self.run()
         except:
             print "Could not connect to server. Terminating"
             sys.exit()
@@ -35,7 +35,10 @@ class ChatUser():
             for socket in readableSockets:
                 #message received from server
                 if socket == self.clientSocket:
-                    message = socket.recv(MAX_RECV)
+		    try:
+	            	message = socket.recv(self.MAX_RECV)
+		    except:
+		    	print "Could not receive message from server"
                     if not message:
                         print "Disconnected from server."
                         sys.exit()
@@ -43,7 +46,11 @@ class ChatUser():
                         print message
                 #user entered message
                 else:
+  		    print "\rEnter message: ",
                     userMessage = sys.stdin.readline()
+		    if userMessage.rstrip('\n') == "disconnect()":
+		    	self.clientSocket.close()
+			sys.exit()
                     self.clientSocket.send(userMessage)
             
         #endwhile
