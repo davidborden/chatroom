@@ -16,8 +16,8 @@ Version 0.0.1 (2/16/2014)
 			-Ex: kill -15 PID
 Known Issues(2/25/2014):
 	-does not broadcast received messages to all connected sockets(should be easy fix ->~line 50)
-	-basically the entirety of the Except around line 69 isn't being called correctly(hence the
-		almost identical if statement code around line 75)
+	-basically the entirety of the Except around line 75 isn't being called correctly(hence the
+		almost identical if statement code around line 69)
 """
 import sys
 import time
