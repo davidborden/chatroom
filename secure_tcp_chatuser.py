@@ -1,11 +1,24 @@
 """
+Version 0.0.2 (2/25/2014)
+        Added the following functionality:
+                -type "disconnect()" (no qoutes) or send whitespace input to the server to close
+                        the connection from the client side without a server side freakout
+
+	Cosmetic changes:
+                -added a server side welcome message sent to the client upon connection
+                -added a client side text prompt
+                -added a "Client X has disconnected" server side message upon disconnect
+        TODO:
+                -add broadcast feature
+                -save log of chat conversations to file
+                -add pycrypto RSA/AES
+
 Version 0.0.1 (2/17/2014)
 	-USAGE: python secure_tcp_chatuser.py [HOST_NAME] [PORT_NUMBER]
 	-Example: python secure_tcp_chatuser.py megatron.cs.ucsb.edu 5000
 
 Known Issues:
-	-if the user program is terminated first then the server side goes into an infinite loop
-	-no prompt for user input
+	-no client side issues known
 """
 
 import sys

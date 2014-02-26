@@ -1,9 +1,6 @@
 """
 Version 0.0.2 (2/25/2014)
-	-confirmed multiple users can connect and send messages
-	Added the following functionality:
-		-type "disconnect()" (no qoutes) or send whitespace input to the server to close
-			the connection from the client side without a server side freakout
+	-Confirmed multiple users can connect and send messages tracked on the server 
 	Cosmetic changes:
 		-added a server side welcome message sent to the client upon connection
 		-added a client side text prompt
