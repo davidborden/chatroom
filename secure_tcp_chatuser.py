@@ -53,13 +53,14 @@ class ChatUser():
 		    except:
 		    	print "Could not receive message from server"
                     if not message:
+			print message
                         print "Disconnected from server."
                         sys.exit()
                     else:
-                        print message
+                        print message + '\n>',
                 #user entered message
                 else:
-  		    print "\rEnter message: ",
+  		    print "\r>",
                     userMessage = sys.stdin.readline()
 		    if userMessage.rstrip('\n') == "disconnect()":
 		    	self.clientSocket.close()

@@ -71,7 +71,13 @@ class ChatRoom():
 				socket.close()
 				self.CONNECTED_SOCKETS.remove(socket)
 				continue
-                        print "< " + self.message.rstrip('\n')
+			#Added 1:50pm 2/26/14
+                        bmsg = "< " + self.message.rstrip('\n')
+			print bmsg
+			try:
+				self.broadcast(bmsg, socket)
+			except:
+				print "Problem broadcasting."
                     except:
                         print "User %s disconnected." % address[0]
                         socket.close()
@@ -85,6 +91,14 @@ class ChatRoom():
         #endwhile
         self.serverSocket.close()
     #endrun
+    def broadcast(self, bmsg, sendingSocket):
+	for socket in self.CONNECTED_SOCKETS:
+		if socket != self.serverSocket and socket != sendingSocket:
+			try:
+				socket.send('\n' + bmsg)
+			except:
+				print "Could not send broadcast."
+#endclass
 #####
 #Main
 #####
