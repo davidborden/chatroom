@@ -1,3 +1,7 @@
+"""
+Taken from https://launchkey.com/docs/api/encryption
+"""
+
 from Crypto.PublicKey import RSA
 def generate_RSA(bits=2048):
   '''
