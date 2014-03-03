@@ -1,5 +1,6 @@
 """
-Taken from
+Test file constructed from:
+
 https://launchkey.com/docs/api/encryption
 http://stackoverflow.com/questions/12524994/encrypt-decrypt-using-pycrypto-aes-256
 http://eli.thegreenplace.net/2010/06/25/aes-encryption-of-files-in-python-with-pycrypto/
