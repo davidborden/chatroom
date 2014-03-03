@@ -1,9 +1,9 @@
 """
-Version 0.0.4 (3/2/2014)
+Version 1.0.0 (3/2/2014)
+    -Initial release
+
     -Must now be run with the pycrypto library installed
     -Client sends AES key to server upon startup and received an accepted message when successful
-        TODO:
-            -AES encrypt individual messages sent to server
 
 Version 0.0.2 (2/25/2014)
         Added the following functionality:
@@ -20,7 +20,7 @@ Version 0.0.1 (2/17/2014)
 	-Example: python secure_tcp_chatuser.py megatron.cs.ucsb.edu 5000
 
 Known Issues (3/2/2014):
-	-no client side issues known
+	-client side text formatting issues
 
 Some functions borrowed from:
     https://launchkey.com/docs/api/encryption
@@ -45,6 +45,34 @@ def encrypt_RSA(public_key_loc, message):
     rsakey = PKCS1_OAEP.new(rsakey)
     encrypted = rsakey.encrypt(message)
     return encrypted.encode('base64')
+#enddef
+
+class AESCipher:
+    def __init__(self, key):
+        self.bs = 32
+        if len(key) >= 32:
+            self.key = key[:32]
+        else:
+            self.key = self._pad(key)
+
+    def encrypt(self, raw):
+        raw = self._pad(raw)
+        iv = Random.new().read(AES.block_size)
+        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        return base64.b64encode(iv + cipher.encrypt(raw))
+
+    def decrypt(self, enc):
+        enc = base64.b64decode(enc)
+        iv = enc[:AES.block_size]
+        cipher = AES.new(self.key, AES.MODE_CBC, iv)
+        return self._unpad(cipher.decrypt(enc[AES.block_size:]))
+
+    def _pad(self, s):
+        return s + (self.bs - len(s) % self.bs) * chr(self.bs - len(s) % self.bs)
+
+    def _unpad(self, s):
+        return s[:-ord(s[len(s)-1:])]
+#endaescipher
 
 class ChatUser():
     def __init__(self, hostname, portnum):
@@ -56,6 +84,8 @@ class ChatUser():
         #Randomly generate a password of size 16 bytes that will be hashed into a 32 byte key.
         self.password = Random.new().read(AES.block_size)
         self.key = hashlib.sha256(self.password).digest()
+        #Generate the cipher using the hashed key
+        self.clientCipher = AESCipher(self.key)
         #Encrypt the  key using RSA (then simulate passing it over the network, as below)
         self.encryptedAES = encrypt_RSA('public_key.txt', self.key)
         #Create initial login state
@@ -89,11 +119,14 @@ class ChatUser():
                     except:
                         print "Could not receive message from server"
                     if not message:
-                        print message
+                        #Unencrypt AES message and print it out
+                        unencryptedServerMessage = self.clientCipher.decrypt(message)
+                        print unencryptedServerMessage
                         print "Disconnected from server."
                         sys.exit()
                     else:
-                        print message + '\n>',
+                        unencryptedServerMessage = self.clientCipher.decrypt(message)
+                        print unencryptedServerMessage + '\n>',
                 #user entered message
                 else:
                    
@@ -102,7 +135,9 @@ class ChatUser():
                     if userMessage.rstrip('\n') == "disconnect()":
                         self.clientSocket.close()
                         sys.exit()
-                    self.clientSocket.send(userMessage)
+                    #AES encrypt message before sending it
+                    encryptedUserMessage = self.clientCipher.encrypt(userMessage)
+                    self.clientSocket.send(encryptedUserMessage)
         
         #endwhile
     #endrun

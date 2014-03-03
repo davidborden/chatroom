@@ -1,5 +1,7 @@
 """
-Version 0.0.4 (3/2/2014)
+Version 1.0.0 (3/2/2014)
+    -Initial release
+
     -Must now be run with the pycrypto library
     -Client must send an RSA encrypted AES key to the server upon initial connection
     -User data and conversation history is now stored as encrypted data with the server AES key hardcoded
@@ -9,7 +11,6 @@ Version 0.0.4 (3/2/2014)
     -Client requires public_key.txt to run
 
     TODO:
-        -AES encrypt individuals messages sent between users
         -polish exception handling and broadcasted message formatting
 
 Version 0.0.3 (3/1/2014)
@@ -32,6 +33,7 @@ Version 0.0.1 (2/16/2014)
 			-Ex: kill -15 PID
 Known Issues(3/1/2014):
         -Server crashes in some odd instances (source of crash unknown due to rarity)
+        -text formatting issues on client side
 	-Does not notify other users when a user disconnects(only shown server side)
         -Does not notify other users when a user connects(only shown server side)
 
@@ -87,6 +89,7 @@ class User():
 	self.state = 'authenticate'
 	#AESKey may need to be set to the empty string ""
 	self.AESKey = None
+	self.clientCipher = None
 	#Each user gets an individual amount of attempts to login successfully
 	self.currentUserAttempts = 0
 	self.currentPasswordAttempts = 0
@@ -97,6 +100,12 @@ def decrypt_RSA(private_key_loc, package):
   rsakey = PKCS1_OAEP.new(rsakey)
   decrypted = rsakey.decrypt(b64decode(package))
   return decrypted
+
+def AESEncrypt(userCipher, msg):
+    return userCipher.encrypt(msg)
+def AESDecrypt(userCipher, msg):
+    return userCipher.decrypt(msg)
+#endaesencrypt
 
 class ChatRoom():
     def __init__(self, portnum):
@@ -183,52 +192,60 @@ class ChatRoom():
                             continue
 			else:
                             #Checks for login status
+                            #At the start of each if/else block decrypt the received MSG using AESDecrypt
                             for i in range(len(self.USER_LIST)):
                                 #Accept the clients public key encryption
                                 #If the client attempts to send anything other than a pubk enc then disconnect them
                                 if self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'authenticate':
-                                    #Decrypt and receive the AES key here
+                                    #RSA Decrypt and receive the AES key here
                                     try:
+                                        #Don't need to AESDecrypt this because it is RSA encrypted and we set the AES cipher afterwards
                                         self.USER_LIST[i].AESKey = decrypt_RSA('private_key.txt', msg)
+                                        self.USER_LIST[i].clientCipher = AESCipher(self.USER_LIST[i].AESKey)
                                         print "Received and decrypted RSA/AES key"
                                     except:
-                                        socket.send("Failed key exchange. Disconnecting.")
+                                        #Disconnect from user without message(temp fix for error raised on .send in this except
+                                        #socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Failed key exchange. Disconnecting."))
                                         socket.close()
                                         self.CONNECTED_SOCKETS.remove(socket)
                                         print "Disconnected user for failing to exchange AES key"                                    
                                     #Notifies the user that the key has been accepted
-                                    socket.send("Connection accepted. Welcome to the chatroom!\n")
+                                    socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Connection accepted. Welcome to the chatroom!\n"))
                                     self.USER_LIST[i].state = 'signin'
                                 
                                 #Lets the user choose to make a new username or use an existing name
                                 if self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'signin':
+                                    msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
+                                    
                                     if msg == 'no':
-                                        socket.send("Enter username: ")
+                                        socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Enter username: "))
                                         self.USER_LIST[i].state = 'username'
                                     elif msg == 'yes':
-                                        socket.send("New username: ")
+                                        socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"New username: "))
                                         self.USER_LIST[i].state = 'create_user'
                                     else:
-                                        socket.send("New user?(yes/no):")
+                                        socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"New user?(yes/no):"))
                                 #If the user does not exist in the dictionary
                                 elif self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'create_user':
+                                    msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
                                     if msg not in self.users:
                                         self.users[msg] = 'temp'                
                                         self.USER_LIST[i].userName = msg
                                         self.CONNECTED_USERS[socket] = msg
-                                        socket.send("Enter password: ")
+                                        socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Enter password: "))
                                         self.USER_LIST[i].state = 'create_password'
                                         #Using AES so write after password has been created
                                         self.unencryptedAccounts += msg + '\n' 
                                     else:
-                                        socket.send("User already exists. Choose another username: ")
+                                        socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"User already exists. Choose another username: "))
                                         
                                 elif self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'create_password':
+                                    msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
                                     self.users[self.USER_LIST[i].userName] = msg
                                     if not self.conversationLog:
-                                        socket.send("Logged in. No conversation history to display.")
+                                        socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Logged in. No conversation history to display."))
                                     else:
-                                        socket.send("Logged in.\n" + self.conversationLog)
+                                        socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Logged in.\n" + self.conversationLog))
                                     self.USER_LIST[i].state = 'logged_in'
                                     #Using AES so need to write to user/pass file all at once
                                     self.unencryptedAccounts += msg + '\n'
@@ -236,39 +253,42 @@ class ChatRoom():
                                         file.write(self.serverCipher.encrypt(self.unencryptedAccounts))
                                 #If the user already exists in the dictionary
                                 elif self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'username':
+                                    msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
                                     if msg in self.users:
-                                        socket.send("Enter password: ")
+                                        socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Enter password: "))
                                         self.USER_LIST[i].state = 'password'
                                         self.USER_LIST[i].userName = msg
                                         self.CONNECTED_USERS[socket] = msg
                                     else:
                                         if self.USER_LIST[i].currentUserAttempts < self.maxAttempts:
-                                            socket.send("Enter username: ")
+                                            socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Enter username: "))
                                         else:
-                                            socket.send("Failed login. Disconnecting.")
+                                            socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Failed login. Disconnecting."))
                                             socket.close()
                                             self.CONNECTED_SOCKETS.remove(socket)
                                             print "Disconnected user attempting to connect with invalid credentials."
                                         self.USER_LIST[i].currentUserAttempts = self.USER_LIST[i].currentUserAttempts + 1
                                         
                                 elif self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'password':
+                                    msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
                                     if msg == self.users[self.USER_LIST[i].userName]:
                                         self.USER_LIST[i].state = 'logged_in'
                                         if not self.conversationLog:
-                                            socket.send("Logged in. No conversation history to display.")
+                                            socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Logged in. No conversation history to display."))
                                         else:
-                                            socket.send("Logged in.\n" + self.conversationLog)
+                                            socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Logged in.\n" + self.conversationLog))
                                     else:
                                         if self.USER_LIST[i].currentPasswordAttempts < self.maxAttempts:
-                                            socket.send("Enter password: ")
+                                            socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Enter password: "))
                                         else:
-                                            socket.send("Failed login. Disconnecting.")
+                                            socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Failed login. Disconnecting."))
                                             socket.close()
                                             self.CONNECTED_SOCKETS.remove(socket)
                                             print "Disconnected user attempting to connect with invalid credentials."
                                         self.USER_LIST[i].currentPasswordAttempts = self.USER_LIST[i].currentPasswordAttempts + 1
                                         
                                 elif self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'logged_in':
+                                    msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
                                     #Only broadcast messages if the user is signed in
                                     bmsg = self.CONNECTED_USERS[socket] + ": " + msg
                                     print bmsg
@@ -300,9 +320,10 @@ class ChatRoom():
     #endrun
     def broadcast(self, bmsg, sendingSocket):
 	for socket in self.CONNECTED_SOCKETS:
-		if socket != self.serverSocket and socket != sendingSocket:
+            for i in range(len(self.USER_LIST)):
+		if socket != self.serverSocket and socket != sendingSocket and socket == self.USER_LIST[i].userSocket:
 			try:
-				socket.send('\n' + bmsg)
+				socket.send(AESEncrypt(self.USER_LIST[i].clientCipher, '\n' + bmsg))
 			except:
 				print "Could not send broadcast."
 #endclass
