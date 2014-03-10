@@ -54,6 +54,7 @@ from Crypto.Cipher import AES
 from Crypto.PublicKey import RSA
 from Crypto.Cipher import PKCS1_OAEP
 from base64 import b64decode
+from Crypto.Hash import HMAC
 
 class AESCipher:
     def __init__(self, key):
@@ -106,6 +107,31 @@ def AESEncrypt(userCipher, msg):
 def AESDecrypt(userCipher, msg):
     return userCipher.decrypt(msg)
 #endaesencrypt
+
+class HMACHash():
+    def __init__(self,user_message):
+        self.shared_salt = b'bAvId'
+        print 'shared secret is: ', self.shared_salt
+        self.hmacHasher = HMAC.new(self.shared_salt)
+        self.mmesage = self.get_hmac_hash_and_message(user_message)
+        #print 'in init: ', self.hmac_hash_and_message
+        #return self.hmac_hash_and_message
+
+    def get_hmac_hash_and_message(self,message):
+        #self.salt_and_message = message + self.shared_salt
+        printable_digest =  self.hmacHasher.hexdigest()
+        print 'printable digest is: ', printable_digest
+        mac_and_message = message + printable_digest
+        print 'hex digest and message is: ', mac_and_message
+        return mac_and_message
+
+def return_message_and_mac(message):
+    printable_digest_length = 32
+    message_length_and_mac = len(message)
+    message_length = message_length_and_mac - printable_digest_length
+    msg = message[:message_length]
+    mac = message[message_length:]
+    return msg, mac
 
 class ChatRoom():
     def __init__(self, portnum):
@@ -212,11 +238,10 @@ class ChatRoom():
                                     #Notifies the user that the key has been accepted
                                     socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Connection accepted. Welcome to the chatroom!\n"))
                                     self.USER_LIST[i].state = 'signin'
-                                
                                 #Lets the user choose to make a new username or use an existing name
                                 if self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'signin':
                                     msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
-                                    
+                                    msg, mac = return_message_and_mac(msg)
                                     if msg == 'no':
                                         socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Enter username: "))
                                         self.USER_LIST[i].state = 'username'
@@ -224,10 +249,15 @@ class ChatRoom():
                                         socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"New username: "))
                                         self.USER_LIST[i].state = 'create_user'
                                     else:
+                                        #TODO: remove this, it's only a test
+                                        #print 'the user sent this message: ', msg
                                         socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"New user?(yes/no):"))
+                                        #print 'sent New user? (yes/no) message'
                                 #If the user does not exist in the dictionary
                                 elif self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'create_user':
                                     msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
+                                    msg, mac = return_message_and_mac(msg)
+
                                     if msg not in self.users:
                                         self.users[msg] = 'temp'                
                                         self.USER_LIST[i].userName = msg
@@ -241,6 +271,7 @@ class ChatRoom():
                                         
                                 elif self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'create_password':
                                     msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
+                                    msg, mac = return_message_and_mac(msg)
                                     self.users[self.USER_LIST[i].userName] = msg
                                     if not self.conversationLog:
                                         socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Logged in. No conversation history to display."))
@@ -254,6 +285,7 @@ class ChatRoom():
                                 #If the user already exists in the dictionary
                                 elif self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'username':
                                     msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
+                                    msg, mac = return_message_and_mac(msg)
                                     if msg in self.users:
                                         socket.send(AESEncrypt(self.USER_LIST[i].clientCipher,"Enter password: "))
                                         self.USER_LIST[i].state = 'password'
@@ -271,6 +303,7 @@ class ChatRoom():
                                         
                                 elif self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'password':
                                     msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
+                                    msg, mac = return_message_and_mac(msg)
                                     if msg == self.users[self.USER_LIST[i].userName]:
                                         self.USER_LIST[i].state = 'logged_in'
                                         if not self.conversationLog:
@@ -289,6 +322,7 @@ class ChatRoom():
                                         
                                 elif self.USER_LIST[i].userSocket == socket and self.USER_LIST[i].state == 'logged_in':
                                     msg = AESDecrypt(self.USER_LIST[i].clientCipher, msg).rstrip('\n')
+                                    msg, mac = return_message_and_mac(msg)
                                     #Only broadcast messages if the user is signed in
                                     bmsg = self.CONNECTED_USERS[socket] + ": " + msg
                                     print bmsg
@@ -306,8 +340,11 @@ class ChatRoom():
                                         print "Problem broadcasting."
 
                     except:
-                        print "User %s disconnected." % self.CONNECTED_USERS[socket]
-                        socket.close()
+                        try:
+                            print "User %s disconnected." % self.CONNECTED_USERS[socket]
+                            socket.close()
+                        except:
+                            "User disconnected before signin complete."
 			try:
 	                        self.CONNECTED_SOCKETS.remove(socket)
 				continue

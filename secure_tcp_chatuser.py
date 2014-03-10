@@ -38,6 +38,8 @@ from Crypto.Cipher import PKCS1_OAEP
 from base64 import b64decode
 from socket import *
 from select import *
+from Crypto.Hash import HMAC
+import traceback
 
 def encrypt_RSA(public_key_loc, message):
     key = open(public_key_loc, "r").read()
@@ -73,6 +75,24 @@ class AESCipher:
     def _unpad(self, s):
         return s[:-ord(s[len(s)-1:])]
 #endaescipher
+
+class HMACHash():
+    def __init__(self,user_message):
+        self.shared_salt = b'bAvId'
+        print 'shared secret is: ', self.shared_salt
+        self.hmacHasher = HMAC.new(self.shared_salt)
+        self.mmesage = self.get_hmac_hash_and_message(user_message)
+        #print 'in init: ', self.hmac_hash_and_message
+        #return self.hmac_hash_and_message
+
+    def get_hmac_hash_and_message(self,message):
+        #self.salt_and_message = message + self.shared_salt
+        printable_digest =  self.hmacHasher.hexdigest()
+        print 'printable digest is: ', printable_digest
+        mac_and_message = message + printable_digest
+        print 'hex digest and message is: ', mac_and_message
+        return mac_and_message
+#endhmac
 
 class ChatUser():
     def __init__(self, hostname, portnum):
@@ -136,7 +156,11 @@ class ChatUser():
                         self.clientSocket.close()
                         sys.exit()
                     #AES encrypt message before sending it
-                    encryptedUserMessage = self.clientCipher.encrypt(userMessage)
+                    self.hasher =  HMACHash(userMessage.rstrip('\n'))
+                    hmac_message = self.hasher.mmesage
+                    #print 'hmac_message is: ', hmac_message #self.hasher.mmesage
+                    encryptedUserMessage = self.clientCipher.encrypt(hmac_message)
+                    #print 'encrypted message is: ', encryptedUserMessage
                     self.clientSocket.send(encryptedUserMessage)
         
         #endwhile
